@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
+ *
+ * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
 #include "tool_setup.h"
@@ -35,6 +37,8 @@
 #include "tool_operate.h"
 
 #include "memdebug.h" /* keep this as LAST include */
+
+#define MAX_BARLENGTH 256
 
 #ifdef HAVE_TERMIOS_H
 #  include <termios.h>
@@ -76,11 +80,16 @@ static const unsigned int sinus[] = {
 
 static void fly(struct ProgressData *bar, bool moved)
 {
-  char buf[256];
+  char buf[MAX_BARLENGTH + 2];
   int pos;
   int check = bar->width - 2;
 
-  msnprintf(buf, sizeof(buf), "%*s\r", bar->width-1, " ");
+  /* bar->width is range checked when assigned */
+  DEBUGASSERT(bar->width <= MAX_BARLENGTH);
+  memset(buf, ' ', bar->width);
+  buf[bar->width] = '\r';
+  buf[bar->width + 1] = '\0';
+
   memcpy(&buf[bar->bar], "-=O=-", 5);
 
   pos = sinus[bar->tick%200] / (1000000 / check);
@@ -112,10 +121,8 @@ static void fly(struct ProgressData *bar, bool moved)
 ** callback for CURLOPT_XFERINFOFUNCTION
 */
 
-#define MAX_BARLENGTH 256
-
-#if (SIZEOF_CURL_OFF_T == 4)
-#  define CURL_OFF_T_MAX CURL_OFF_T_C(0x7FFFFFFF)
+#if (SIZEOF_CURL_OFF_T < 8)
+#error "too small curl_off_t"
 #else
    /* assume SIZEOF_CURL_OFF_T == 8 */
 #  define CURL_OFF_T_MAX CURL_OFF_T_C(0x7FFFFFFFFFFFFFFF)
@@ -125,9 +132,6 @@ int tool_progress_cb(void *clientp,
                      curl_off_t dltotal, curl_off_t dlnow,
                      curl_off_t ultotal, curl_off_t ulnow)
 {
-  /* The original progress-bar source code was written for curl by Lars Aas,
-     and this new edition inherits some of his concepts. */
-
   struct timeval now = tvnow();
   struct per_transfer *per = clientp;
   struct OperationConfig *config = per->config;
@@ -135,19 +139,28 @@ int tool_progress_cb(void *clientp,
   curl_off_t total;
   curl_off_t point;
 
-  /* Calculate expected transfer size. initial_size can be less than zero
-     when indicating that we are expecting to get the filesize from the
-     remote */
-  if(bar->initial_size < 0 ||
-     ((CURL_OFF_T_MAX - bar->initial_size) < (dltotal + ultotal)))
+  /* Calculate expected transfer size. initial_size can be less than zero when
+     indicating that we are expecting to get the filesize from the remote */
+  if(bar->initial_size < 0) {
+    if(dltotal || ultotal)
+      total = dltotal + ultotal;
+    else
+      total = CURL_OFF_T_MAX;
+  }
+  else if((CURL_OFF_T_MAX - bar->initial_size) < (dltotal + ultotal))
     total = CURL_OFF_T_MAX;
   else
     total = dltotal + ultotal + bar->initial_size;
 
   /* Calculate the current progress. initial_size can be less than zero when
      indicating that we are expecting to get the filesize from the remote */
-  if(bar->initial_size < 0 ||
-     ((CURL_OFF_T_MAX - bar->initial_size) < (dlnow + ulnow)))
+  if(bar->initial_size < 0) {
+    if(dltotal || ultotal)
+      point = dlnow + ulnow;
+    else
+      point = CURL_OFF_T_MAX;
+  }
+  else if((CURL_OFF_T_MAX - bar->initial_size) < (dlnow + ulnow))
     point = CURL_OFF_T_MAX;
   else
     point = dlnow + ulnow + bar->initial_size;
@@ -195,7 +208,14 @@ int tool_progress_cb(void *clientp,
     memset(line, '#', num);
     line[num] = '\0';
     msnprintf(format, sizeof(format), "\r%%-%ds %%5.1f%%%%", barwidth);
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+#endif
     fprintf(bar->out, format, line, percent);
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
   }
   fflush(bar->out);
   bar->prev = point;
@@ -215,9 +235,8 @@ void progressbarinit(struct ProgressData *bar,
   char *colp;
   memset(bar, 0, sizeof(struct ProgressData));
 
-  /* pass this through to progress function so
-   * it can display progress towards total file
-   * not just the part that's left. (21-may-03, dbyron) */
+  /* pass the resume from value through to the progress function so it can
+   * display progress towards total file not just the part that's left. */
   if(config->use_resume)
     bar->initial_size = config->resume_from;
 
@@ -242,7 +261,7 @@ void progressbarinit(struct ProgressData *bar,
     struct winsize ts;
     if(!ioctl(STDIN_FILENO, TIOCGWINSZ, &ts))
       cols = ts.ws_col;
-#elif defined(WIN32)
+#elif defined(_WIN32)
     {
       HANDLE  stderr_hnd = GetStdHandle(STD_ERROR_HANDLE);
       CONSOLE_SCREEN_BUFFER_INFO console_info;
@@ -267,7 +286,7 @@ void progressbarinit(struct ProgressData *bar,
   else if(bar->width > MAX_BARLENGTH)
     bar->width = MAX_BARLENGTH;
 
-  bar->out = config->global->errors;
+  bar->out = tool_stderr;
   bar->tick = 150;
   bar->barmove = 1;
 }

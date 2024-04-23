@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,9 +18,11 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
+ * SPDX-License-Identifier: curl
+ *
  ***************************************************************************/
 /* <DESC>
- * An example of curl_easy_send() and curl_easy_recv() usage.
+ * Demonstrate curl_easy_send() and curl_easy_recv() usage.
  * </DESC>
  */
 
@@ -36,12 +38,20 @@ static int wait_on_socket(curl_socket_t sockfd, int for_recv, long timeout_ms)
   int res;
 
   tv.tv_sec = timeout_ms / 1000;
-  tv.tv_usec = (timeout_ms % 1000) * 1000;
+  tv.tv_usec = (int)(timeout_ms % 1000) * 1000;
 
   FD_ZERO(&infd);
   FD_ZERO(&outfd);
   FD_ZERO(&errfd);
 
+/* Avoid this warning with pre-2020 Cygwin/MSYS releases:
+ * warning: conversion to 'long unsigned int' from 'curl_socket_t' {aka 'int'}
+ * may change the sign of the result [-Wsign-conversion]
+ */
+#if defined(__GNUC__) && defined(__CYGWIN__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
   FD_SET(sockfd, &errfd); /* always check for error */
 
   if(for_recv) {
@@ -50,6 +60,9 @@ static int wait_on_socket(curl_socket_t sockfd, int for_recv, long timeout_ms)
   else {
     FD_SET(sockfd, &outfd);
   }
+#if defined(__GNUC__) && defined(__CYGWIN__)
+#pragma GCC diagnostic pop
+#endif
 
   /* select() returns the number of signalled sockets or -1 */
   res = select((int)sockfd + 1, &infd, &outfd, &errfd, &tv);
@@ -63,9 +76,9 @@ int main(void)
   const char *request = "GET / HTTP/1.0\r\nHost: example.com\r\n\r\n";
   size_t request_len = strlen(request);
 
-  /* A general note of caution here: if you're using curl_easy_recv() or
+  /* A general note of caution here: if you are using curl_easy_recv() or
      curl_easy_send() to implement HTTP or _any_ other protocol libcurl
-     supports "natively", you're doing it wrong and you should stop.
+     supports "natively", you are doing it wrong and you should stop.
 
      This example uses HTTP only to show how to use this API, it does not
      suggest that writing an application doing this is sensible.
@@ -87,7 +100,7 @@ int main(void)
       return 1;
     }
 
-    /* Extract the socket from the curl handle - we'll need it for waiting. */
+    /* Extract the socket from the curl handle - we need it for waiting. */
     res = curl_easy_getinfo(curl, CURLINFO_ACTIVESOCKET, &sockfd);
 
     if(res != CURLE_OK) {
@@ -119,8 +132,7 @@ int main(void)
         return 1;
       }
 
-      printf("Sent %" CURL_FORMAT_CURL_OFF_T " bytes.\n",
-        (curl_off_t)nsent);
+      printf("Sent %lu bytes.\n", (unsigned long)nsent);
 
     } while(nsent_total < request_len);
 
@@ -150,8 +162,7 @@ int main(void)
         break;
       }
 
-      printf("Received %" CURL_FORMAT_CURL_OFF_T " bytes.\n",
-        (curl_off_t)nread);
+      printf("Received %lu bytes.\n", (unsigned long)nread);
     }
 
     /* always cleanup */

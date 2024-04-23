@@ -2,15 +2,16 @@
 
 Source code that has a common style is easier to read than code that uses
 different styles in different places. It helps making the code feel like one
-single code base. Easy-to-read is a very important property of code and helps
+single code base. Easy-to-read is an important property of code and helps
 making it easier to review when new things are added and it helps debugging
 code when developers are trying to figure out why things go wrong. A unified
 style is more important than individual contributors having their own personal
 tastes satisfied.
 
 Our C code has a few style rules. Most of them are verified and upheld by the
-`lib/checksrc.pl` script. Invoked with `make checksrc` or even by default by
-the build system when built after `./configure --enable-debug` has been used.
+`scripts/checksrc.pl` script. Invoked with `make checksrc` or even by default
+by the build system when built after `./configure --enable-debug` has been
+used.
 
 It is normally not a problem for anyone to follow the guidelines, as you just
 need to copy the style already used in the source code and there are no
@@ -18,14 +19,14 @@ particularly unusual rules in our set of rules.
 
 We also work hard on writing code that are warning-free on all the major
 platforms and in general on as many platforms as possible. Code that obviously
-will cause warnings will not be accepted as-is.
+causes warnings is not accepted as-is.
 
 ## Naming
 
 Try using a non-confusing naming scheme for your new functions and variable
-names. It doesn't necessarily have to mean that you should use the same as in
+names. It does not necessarily have to mean that you should use the same as in
 other places of the code, just that the names should be logical,
-understandable and be named according to what they're used for. File-local
+understandable and be named according to what they are used for. File-local
 functions should be made static. We like lower case names.
 
 See the [INTERNALS](https://curl.se/dev/internals.html#symbols) document on
@@ -46,7 +47,7 @@ if(something_is_true) {
 
 ## Comments
 
-Since we write C89 code, **//** comments are not allowed. They weren't
+Since we write C89 code, **//** comments are not allowed. They were not
 introduced in the C standard until C99. We use only __/* comments */__.
 
 ```c
@@ -56,14 +57,14 @@ introduced in the C standard until C99. We use only __/* comments */__.
 ## Long lines
 
 Source code in curl may never be wider than 79 columns and there are two
-reasons for maintaining this even in the modern era of very large and high
+reasons for maintaining this even in the modern era of large and high
 resolution screens:
 
-1. Narrower columns are easier to read than very wide ones. There's a reason
+1. Narrower columns are easier to read than wide ones. There is a reason
    newspapers have used columns for decades or centuries.
 
 2. Narrower columns allow developers to easier show multiple pieces of code
-   next to each other in different windows. I often have two or three source
+   next to each other in different windows. It allows two or three source
    code windows next to each other on the same screen - as well as multiple
    terminal and debugging windows.
 
@@ -154,8 +155,8 @@ if(!ptr)
 
 ## New block on a new line
 
-We never write multiple statements on the same source line, even for very
-short if() conditions.
+We never write multiple statements on the same source line, even for short
+if() conditions.
 
 ```c
 if(a)
@@ -173,7 +174,7 @@ else if(b) return FALSE;
 
 ## Space around operators
 
-Please use spaces on both sides of operators in C expressions.  Postfix **(),
+Please use spaces on both sides of operators in C expressions. Postfix **(),
 [], ->, ., ++, --** and Unary **+, -, !, ~, &** operators excluded they should
 have no space.
 
@@ -217,10 +218,10 @@ int size = sizeof(int);
 
 Some statements cannot be completed on a single line because the line would be
 too long, the statement too hard to read, or due to other style guidelines
-above. In such a case the statement will span multiple lines.
+above. In such a case the statement spans multiple lines.
 
 If a continuation line is part of an expression or sub-expression then you
-should align on the appropriate column so that it's easy to tell what part of
+should align on the appropriate column so that it is easy to tell what part of
 the statement it is. Operators should not start continuation lines. In other
 cases follow the 2-space indent guideline. Here are some examples from
 libcurl:
@@ -230,7 +231,7 @@ if(Curl_pipeline_wanted(handle->multi, CURLPIPE_HTTP1) &&
    (handle->set.httpversion != CURL_HTTP_VERSION_1_0) &&
    (handle->set.httpreq == HTTPREQ_GET ||
     handle->set.httpreq == HTTPREQ_HEAD))
-  /* didn't ask for HTTP/1.0 and a GET or HEAD */
+  /* did not ask for HTTP/1.0 and a GET or HEAD */
   return TRUE;
 ```
 
